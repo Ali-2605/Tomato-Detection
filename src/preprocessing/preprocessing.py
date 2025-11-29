@@ -16,7 +16,7 @@ class TomatoDataPreprocessor:
             target_size: Target size for resizing images (default: (64, 64))
         """
         self.dataset_path = dataset_path
-        self.bins = bins
+        self.bins = 64 
         self.target_size = target_size
         
     def parse_yolo_label(self, label_path, img_width, img_height):
@@ -210,12 +210,12 @@ class TomatoDataPreprocessor:
             }
             # Add feature vector components (96 features: R0-R31, G0-G31, B0-B31)
             for i, value in enumerate(item['feature_vector']):
-                if i < 32:
+                if i < self.bins:
                     row[f'R{i}'] = value
-                elif i < 64:
-                    row[f'G{i-32}'] = value
+                elif i < 2 * self.bins:
+                    row[f'G{i - self.bins}'] = value
                 else:
-                    row[f'B{i-64}'] = value
+                    row[f'B{i - 2 * self.bins}'] = value
             
             df_data.append(row)
         
