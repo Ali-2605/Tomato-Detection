@@ -1,6 +1,10 @@
 # Dataset contents but keep folder structure
 dataSet/*
 
+# Preprocessed data files 
+src/preprocessing/preprocessed_data_*.csv
+src/preprocessing/preprocessed_data_*.pkl
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -21,7 +25,3 @@ venv.bak/
 *.swp
 *.swo
 *~
-
-# Preprocessed data files (usually large)
-src/preprocessing/preprocessed_data_*.csv
-src/preprocessing/preprocessed_data_*.pkl

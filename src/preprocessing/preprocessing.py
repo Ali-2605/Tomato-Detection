@@ -222,12 +222,12 @@ class TomatoDataPreprocessor:
         df = pd.DataFrame(df_data)
         
         # Save to CSV
-        csv_file = f"{base_filename}.csv"
+        csv_file = f"{base_filename}{self.bins}.csv"
         df.to_csv(csv_file, index=False)
         print(f"Data saved to CSV: {csv_file}")
         
         # Save to pickle (preserving original structure)
-        pkl_file = f"{base_filename}.pkl"
+        pkl_file = f"{base_filename}{self.bins}.pkl"
         with open(pkl_file, 'wb') as f:
             pickle.dump(data, f)
         print(f"Data saved to pickle: {pkl_file}")
@@ -239,9 +239,9 @@ if __name__ == "__main__":
     # Initialize preprocessor
     dataset_path = "../../dataSet"      
 
-    split_choice = 'train'  # Change this to 'val' or 'test' as needed
+    split_choice = 'train'  # Change this to 'val' or 'test' or 'train' as needed
     
-    preprocessor = TomatoDataPreprocessor(dataset_path, bins=32, target_size=(64, 64))
+    preprocessor = TomatoDataPreprocessor(dataset_path, bins=64, target_size=(64, 64))
 
     # Process specified split 
     processed_data = preprocessor.process_dataset(split_choice)
