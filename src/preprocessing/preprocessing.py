@@ -239,7 +239,7 @@ if __name__ == "__main__":
     # Initialize preprocessor
     dataset_path = "../../dataSet"      
 
-    split_choice = 'val'  # Change this to 'val' or 'test' as needed
+    split_choice = 'train'  # Change this to 'val' or 'test' as needed
     
     preprocessor = TomatoDataPreprocessor(dataset_path, bins=32, target_size=(64, 64))
 
