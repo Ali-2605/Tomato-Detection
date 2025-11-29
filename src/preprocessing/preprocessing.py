@@ -16,7 +16,7 @@ class TomatoDataPreprocessor:
             target_size: Target size for resizing images (default: (64, 64))
         """
         self.dataset_path = dataset_path
-        self.bins = 64 
+        self.bins = bins
         self.target_size = target_size
         
     def parse_yolo_label(self, label_path, img_width, img_height):

@@ -5,7 +5,7 @@ A machine learning project for classifying tomatoes as fresh or rotten using com
 ## Project Structure
 
 ```
-MlProject/
+Tomato-Detection/
 ├── README.md
 ├── requirements.txt
 ├── .gitignore
@@ -24,7 +24,7 @@ MlProject/
     │   ├── preprocessing.py    # Main preprocessing script
     │   └── visualize_tomatoes.py  # Dataset visualization (optional)
     └── logisticRegression/
-        └── LogisticRegression.py  # Logistic regression implementation
+        └── LogisticRegression.py  # Logistic regression implementation still work on progress
 ```
 
 ## Setup Instructions
