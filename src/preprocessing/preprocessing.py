@@ -235,6 +235,12 @@ class TomatoDataPreprocessor:
                     # Try real image augmentation if paths are provided
                     if images_path and labels_path:
                         img_name = original_sample['img_name']
+                        tomato_idx = original_sample['tomato_index']
+                        
+                        # Progress indicator
+                        images_remaining = samples_to_add - (i + 1)
+                        print(f"  [{i+1}/{samples_to_add}] Duplicating '{img_name}' (tomato #{tomato_idx}) with '{aug_type}' augmentation - {images_remaining} images remaining")
+                        
                         img_file = os.path.join(images_path, img_name)
                         label_file = os.path.join(labels_path, os.path.splitext(img_name)[0] + '.txt')
                         
@@ -242,7 +248,6 @@ class TomatoDataPreprocessor:
                         cropped_tomatoes = self.extract_tomato_regions(img_file, label_file)
                         
                         # Find the specific tomato by index
-                        tomato_idx = original_sample['tomato_index']
                         if tomato_idx < len(cropped_tomatoes):
                             cropped_img, _ = cropped_tomatoes[tomato_idx]
                             
@@ -468,7 +473,7 @@ if __name__ == "__main__":
             print(f"\nNormalization statistics saved to {norm_stats_file}")
             
             # Apply normalization
-            # processed_data = preprocessor.normalize_data(processed_data, mean, std)
+            processed_data = preprocessor.normalize_data(processed_data, mean, std)
         else:
             # Load normalization stats from training data
             norm_stats_file = f"norm_stats{preprocessor.bins}.pkl"
@@ -480,7 +485,7 @@ if __name__ == "__main__":
                 print(f"\nLoaded normalization statistics from {norm_stats_file}")
                 
                 # Apply normalization
-                # processed_data = preprocessor.normalize_data(processed_data, mean, std)
+                processed_data = preprocessor.normalize_data(processed_data, mean, std)
             else:
                 print(f"\nWarning: {norm_stats_file} not found. Data will not be normalized.")
                 print("Please process training data first to generate normalization statistics.")
