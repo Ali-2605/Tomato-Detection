@@ -119,7 +119,7 @@ class LogisticRegression:
                 print(f"Iteration {iteration}, Loss: {loss:.4f}")
         
         return loss_history
-    def predict_proba(self, X):
+    def _predict_proba(self, X):
         """
         Predict probabilities for input features
         Args:
@@ -142,11 +142,11 @@ class LogisticRegression:
             numpy.ndarray: Predicted class labels (0 or 1)
         """
 
-        a = self.predict_proba(X)
+        a = self._predict_proba(X)
         predictions = (a >= 0.5).astype(int)
         return predictions
     
-    def evaluate(self, split="val"):
+    def evaluate(self, split):
         """
         Evaluate model accuracy on a specific dataset split
         
@@ -233,7 +233,7 @@ class LogisticRegression:
         Returns:
             Dictionary with fpr_list, tpr_list, and auc
         """
-        y_proba = self.predict_proba(X)
+        y_proba = self._predict_proba(X)
         
         thresholds = np.linspace(0, 1, num_thresholds)
         tpr_list = []
@@ -267,7 +267,6 @@ class LogisticRegression:
             'auc': auc
         }
 
-    
     def save_model(self, path):
         """
         Save model parameters to a file

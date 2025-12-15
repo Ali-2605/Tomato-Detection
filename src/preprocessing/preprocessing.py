@@ -440,7 +440,7 @@ if __name__ == "__main__":
     # Initialize preprocessor
     dataset_path = "../../dataSet"      
 
-    split_choice = 'val'  # Change this to 'val' or 'test' or 'train' as needed
+    split_choice = 'train'  # Change this to 'val' or 'test' or 'train' as needed
     
     preprocessor = TomatoDataPreprocessor(dataset_path, bins=32, target_size=(64, 64))
 
@@ -468,7 +468,7 @@ if __name__ == "__main__":
             print(f"\nNormalization statistics saved to {norm_stats_file}")
             
             # Apply normalization
-            processed_data = preprocessor.normalize_data(processed_data, mean, std)
+            # processed_data = preprocessor.normalize_data(processed_data, mean, std)
         else:
             # Load normalization stats from training data
             norm_stats_file = f"norm_stats{preprocessor.bins}.pkl"
@@ -480,7 +480,7 @@ if __name__ == "__main__":
                 print(f"\nLoaded normalization statistics from {norm_stats_file}")
                 
                 # Apply normalization
-                processed_data = preprocessor.normalize_data(processed_data, mean, std)
+                # processed_data = preprocessor.normalize_data(processed_data, mean, std)
             else:
                 print(f"\nWarning: {norm_stats_file} not found. Data will not be normalized.")
                 print("Please process training data first to generate normalization statistics.")
