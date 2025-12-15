@@ -103,11 +103,11 @@ class TomatoDataPreprocessor:
     
     def extract_color_histogram(self, image):
         """
-        Args:
+        Args:  
             image: Input RGB image
             
         Returns:
-            Flattened color histogram feature vector
+            Flattened color histogram feature vector with RGB and HSV features
         """
         # Calculate histograms for each RGB channel
         hist_r = cv.calcHist([image], [0], None, [self.bins], [0, 256])
@@ -120,10 +120,163 @@ class TomatoDataPreprocessor:
         hist_g = hist_g.flatten() / np.sum(hist_g)
         hist_b = hist_b.flatten() / np.sum(hist_b)
         
+        # Convert to HSV for additional color features
+        hsv_image = cv.cvtColor(image, cv.COLOR_RGB2HSV)
+        hist_h = cv.calcHist([hsv_image], [0], None, [self.bins], [0, 180])
+        hist_s = cv.calcHist([hsv_image], [1], None, [self.bins], [0, 256])
+        hist_v = cv.calcHist([hsv_image], [2], None, [self.bins], [0, 256])
+        
+        hist_h = hist_h.flatten() / np.sum(hist_h)
+        hist_s = hist_s.flatten() / np.sum(hist_s)
+        hist_v = hist_v.flatten() / np.sum(hist_v)
+        
         # Concatenate all histograms into single feature vector
-        color_histogram = np.concatenate([hist_r, hist_g, hist_b])
+        # RGB (3 * bins) + HSV (3 * bins) = 6 * bins features
+        color_histogram = np.concatenate([hist_r, hist_g, hist_b, hist_h, hist_s, hist_v])
         
         return color_histogram
+    
+    def augment_image(self, image, augmentation_type='brightness'):
+        """
+        Apply augmentation to an image
+        
+        Args:
+            image: Input RGB image
+            augmentation_type: Type of augmentation ('brightness', 'contrast', 'flip', 'rotate')
+            
+        Returns:
+            Augmented image
+        """
+        if augmentation_type == 'brightness':
+            # Increase brightness
+            hsv = cv.cvtColor(image, cv.COLOR_RGB2HSV)
+            hsv = hsv.astype(np.float32)
+            hsv[:, :, 2] = hsv[:, :, 2] * 1.2  # Increase V channel by 20%
+            hsv[:, :, 2] = np.clip(hsv[:, :, 2], 0, 255)
+            hsv = hsv.astype(np.uint8)
+            return cv.cvtColor(hsv, cv.COLOR_HSV2RGB)
+        
+        elif augmentation_type == 'contrast':
+            # Increase contrast
+            alpha = 1.3  # Contrast control
+            beta = 0     # Brightness control
+            return cv.convertScaleAbs(image, alpha=alpha, beta=beta)
+        
+        elif augmentation_type == 'flip':
+            # Horizontal flip
+            return cv.flip(image, 1)
+        
+        elif augmentation_type == 'rotate':
+            # Rotate by 10 degrees
+            h, w = image.shape[:2]
+            center = (w // 2, h // 2)
+            rotation_matrix = cv.getRotationMatrix2D(center, 10, 1.0)
+            return cv.warpAffine(image, rotation_matrix, (w, h))
+        
+        elif augmentation_type == 'noise':
+            # Add small gaussian noise
+            noise = np.random.normal(0, 10, image.shape).astype(np.float32)
+            noisy_image = image.astype(np.float32) + noise
+            return np.clip(noisy_image, 0, 255).astype(np.uint8)
+        
+        return image
+    
+    def balance_dataset(self, data, split='train', images_path=None, labels_path=None):
+        """
+        Balance the dataset by augmenting the minority class with real image augmentations
+        
+        Args:
+            data: List of dictionaries with processed data
+            split: Dataset split ('train', 'val', or 'test')
+            images_path: Path to images folder (needed for real augmentation)
+            labels_path: Path to labels folder (needed for real augmentation)
+            
+        Returns:
+            Balanced dataset
+        """
+        # Count samples per class
+        class_counts = {}
+        class_samples = {}
+        
+        for item in data:
+            class_id = item['class_id']
+            if class_id not in class_counts:
+                class_counts[class_id] = 0
+                class_samples[class_id] = []
+            class_counts[class_id] += 1
+            class_samples[class_id].append(item)
+        
+        print(f"\nOriginal class distribution:")
+        for class_id, count in class_counts.items():
+            class_name = "Fresh" if class_id == 0 else "Rotten"
+            print(f"  Class {class_id} ({class_name}): {count} samples")
+        
+        # Find majority class count
+        max_count = max(class_counts.values())
+        
+        # Augment minority classes
+        balanced_data = data.copy()
+        augmentation_types = ['brightness', 'contrast', 'flip', 'rotate', 'noise']
+        
+        for class_id, count in class_counts.items():
+            if count < max_count:
+                samples_to_add = max_count - count
+                class_name = "Fresh" if class_id == 0 else "Rotten"
+                print(f"\nAugmenting class {class_id} ({class_name}): adding {samples_to_add} samples")
+                
+                # Randomly select samples from this class and augment them
+                for i in range(samples_to_add):
+                    # Select a random sample from this class
+                    original_sample = class_samples[class_id][i % len(class_samples[class_id])]
+                    
+                    # Select augmentation type
+                    aug_type = augmentation_types[i % len(augmentation_types)]
+                    
+                    # Try real image augmentation if paths are provided
+                    if images_path and labels_path:
+                        img_name = original_sample['img_name']
+                        img_file = os.path.join(images_path, img_name)
+                        label_file = os.path.join(labels_path, os.path.splitext(img_name)[0] + '.txt')
+                        
+                        # Extract tomato regions from original image
+                        cropped_tomatoes = self.extract_tomato_regions(img_file, label_file)
+                        
+                        # Find the specific tomato by index
+                        tomato_idx = original_sample['tomato_index']
+                        if tomato_idx < len(cropped_tomatoes):
+                            cropped_img, _ = cropped_tomatoes[tomato_idx]
+                            
+                            # Apply augmentation to the actual image
+                            augmented_img = self.augment_image(cropped_img, aug_type)
+                            
+                            # Resize and extract features from augmented image
+                            resized_img = cv.resize(augmented_img, self.target_size)
+                            augmented_features = self.extract_color_histogram(resized_img)
+                            
+                            # Create new sample with real augmented features
+                            augmented_sample = {
+                                'img_name': f"{img_name}_aug{aug_type}{i}",
+                                'feature_vector': augmented_features.tolist(),
+                                'class_id': class_id,
+                                'tomato_index': tomato_idx
+                            }
+                            
+                            balanced_data.append(augmented_sample)
+                            continue
+                    
+        
+        # Count samples after balancing
+        balanced_counts = {}
+        for item in balanced_data:
+            class_id = item['class_id']
+            balanced_counts[class_id] = balanced_counts.get(class_id, 0) + 1
+        
+        print(f"\nBalanced class distribution:")
+        for class_id, count in balanced_counts.items():
+            class_name = "Fresh" if class_id == 0 else "Rotten"
+            print(f"  Class {class_id} ({class_name}): {count} samples")
+        
+        return balanced_data
     
     def process_dataset(self, split='train'):
         """
@@ -174,7 +327,7 @@ class TomatoDataPreprocessor:
                 # Resize image 
                 resized_img = cv.resize(cropped_img, self.target_size)
                 
-                # Extract color histogram features (96 features: 32 R + 32 G + 32 B)
+                # Extract color histogram features (192 features: 32 R + 32 G + 32 B + 32 H + 32 S + 32 V)
                 feature_vector = self.extract_color_histogram(resized_img)
                 
                 # Convert YOLO class ID to binary label: 2 (Fresh) -> 0, 3 (Rotten) -> 1
@@ -192,6 +345,48 @@ class TomatoDataPreprocessor:
         
         return results
     
+    def compute_normalization_stats(self, data):
+        """
+        Compute mean and std for Z-score normalization from data
+        
+        Args:
+            data: List of dictionaries with processed data
+            
+        Returns:
+            Tuple of (mean, std) arrays
+        """
+        # Extract all feature vectors
+        feature_vectors = np.array([item['feature_vector'] for item in data])
+        
+        # Compute mean and std for each feature
+        mean = np.mean(feature_vectors, axis=0)
+        std = np.std(feature_vectors, axis=0) + 1e-8  # Add small constant to avoid division by zero
+        
+        return mean, std
+    
+    def normalize_data(self, data, mean, std):
+        """
+        Apply Z-score normalization to data using provided statistics
+        
+        Args:
+            data: List of dictionaries with processed data
+            mean: Mean array for normalization
+            std: Std array for normalization
+            
+        Returns:
+            Normalized data
+        """
+        normalized_data = []
+        for item in data:
+            feature_vector = np.array(item['feature_vector'])
+            normalized_features = (feature_vector - mean) / std
+            
+            normalized_item = item.copy()
+            normalized_item['feature_vector'] = normalized_features.tolist()
+            normalized_data.append(normalized_item)
+        
+        return normalized_data
+    
     def save_data(self, data, base_filename="preprocessed_data"):
         """
         Save data to both CSV and pickle files
@@ -208,14 +403,20 @@ class TomatoDataPreprocessor:
                 'class_id': item['class_id'],
                 'tomato_index': item['tomato_index']
             }
-            # Add feature vector components (96 features: R0-R31, G0-G31, B0-B31)
+            # Add feature vector components (192 features: R0-R31, G0-G31, B0-B31, H0-H31, S0-S31, V0-V31)
             for i, value in enumerate(item['feature_vector']):
                 if i < self.bins:
                     row[f'R{i}'] = value
                 elif i < 2 * self.bins:
                     row[f'G{i - self.bins}'] = value
-                else:
+                elif i < 3 * self.bins:
                     row[f'B{i - 2 * self.bins}'] = value
+                elif i < 4 * self.bins:
+                    row[f'H{i - 3 * self.bins}'] = value
+                elif i < 5 * self.bins:
+                    row[f'S{i - 4 * self.bins}'] = value
+                else:
+                    row[f'V{i - 5 * self.bins}'] = value
             
             df_data.append(row)
         
@@ -239,12 +440,50 @@ if __name__ == "__main__":
     # Initialize preprocessor
     dataset_path = "../../dataSet"      
 
-    split_choice = 'train'  # Change this to 'val' or 'test' or 'train' as needed
+    split_choice = 'val'  # Change this to 'val' or 'test' or 'train' as needed
     
-    preprocessor = TomatoDataPreprocessor(dataset_path, bins=64, target_size=(64, 64))
+    preprocessor = TomatoDataPreprocessor(dataset_path, bins=32, target_size=(64, 64))
 
     # Process specified split 
     processed_data = preprocessor.process_dataset(split_choice)
+    
+    # Balance dataset if it's training data
+    if processed_data and split_choice == 'train':
+        # Pass image paths for real augmentation
+        images_path = os.path.join(dataset_path, split_choice, 'images')
+        labels_path = os.path.join(dataset_path, split_choice, 'labels')
+        processed_data = preprocessor.balance_dataset(processed_data, split_choice, images_path, labels_path)
+    
+    # Normalize data
+    if processed_data:
+        if split_choice == 'train':
+            # Compute and save normalization statistics from training data
+            mean, std = preprocessor.compute_normalization_stats(processed_data)
+            
+            # Save normalization stats
+            norm_stats = {'mean': mean, 'std': std}
+            norm_stats_file = f"norm_stats{preprocessor.bins}.pkl"
+            with open(norm_stats_file, 'wb') as f:
+                pickle.dump(norm_stats, f)
+            print(f"\nNormalization statistics saved to {norm_stats_file}")
+            
+            # Apply normalization
+            processed_data = preprocessor.normalize_data(processed_data, mean, std)
+        else:
+            # Load normalization stats from training data
+            norm_stats_file = f"norm_stats{preprocessor.bins}.pkl"
+            if os.path.exists(norm_stats_file):
+                with open(norm_stats_file, 'rb') as f:
+                    norm_stats = pickle.load(f)
+                mean = norm_stats['mean']
+                std = norm_stats['std']
+                print(f"\nLoaded normalization statistics from {norm_stats_file}")
+                
+                # Apply normalization
+                processed_data = preprocessor.normalize_data(processed_data, mean, std)
+            else:
+                print(f"\nWarning: {norm_stats_file} not found. Data will not be normalized.")
+                print("Please process training data first to generate normalization statistics.")
     
     # Save to CSV and pickle files
     if processed_data:
@@ -252,7 +491,7 @@ if __name__ == "__main__":
         
         print(f"\nProcessing completed!")
         print(f"Total tomato samples: {len(processed_data)}")
-        print(f"Feature vector length: 96 (32 R + 32 G + 32 B)")
+        print(f"Feature vector length: {preprocessor.bins * 6} ({preprocessor.bins} R + {preprocessor.bins} G + {preprocessor.bins} B + {preprocessor.bins} H + {preprocessor.bins} S + {preprocessor.bins} V)")
         print(f"Files created:")
         print(f"  - {csv_file}")
         print(f"  - {pkl_file}")
