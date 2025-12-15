@@ -10,163 +10,197 @@ from utils.data_loader import load_data
 from LogisticRegression import LogisticRegression
 
 class ModelVisualization:
-    def __init__(self):
-        # Load dataset splits
-        self.X_train, self.y_train = load_data("train")
-        self.X_val, self.y_val = load_data("val")
+    def __init__(self, bins=32, data_split='test'):
+        """
+        Initialize visualization with data
         
-        self.model = LogisticRegression(learning_rate=0.05, max_iterations=10000)
-        self.predictions = None
-        self.version_counter = 3
+        Args:
+            bins: Number of histogram bins
+            data_split: Which split to evaluate on ('train', 'val', 'test')
+        """
+        self.bins = bins
+        self.data_split = data_split
         
-    def train_model(self):
-        """Train logistic regression model on training data"""
+        # Load dataset
+        self.X_train, self.y_train = load_data("train", bins=self.bins)
+        self.X_eval, self.y_eval = load_data(data_split, bins=self.bins)
+        
+        print(f"Training set size: {len(self.y_train)}")
+        print(f"Evaluation set ({data_split}): {len(self.y_eval)}")
+        print(f"Training distribution - Fresh: {np.sum(self.y_train == 0)}, Rotten: {np.sum(self.y_train == 1)}")
+        
+        self.model = LogisticRegression(learning_rate=0.05, max_iterations=15000, bins=self.bins)
+        self.metrics = None
+        self.roc_data = None
+        self.loss_history = []
+        
+    def train_model(self, save_path):
+        """
+        Train model and save to specified path
+        
+        Args:
+            save_path: Path to save trained model
+        """
+        print("\n" + "="*50)
         print("Training model...")
+        print("="*50)
         
-        # Check training data distribution
-        print(f"Training set distribution - Fresh (0): {np.sum(self.y_train == 0)}, Rotten (1): {np.sum(self.y_train == 1)}")
+        self.loss_history = self.model.train("train")
+        self.model.save_model(save_path)
+        print(f"\nModel saved to: {save_path}")
         
-        self.model.train("train")
+    def load_model(self, model_path):
+        """
+        Load model from specified path
         
-        # Save model with version counter
-        model_path = f"model_v{self.version_counter}.pkl"
-        self.model.save_model(model_path)
-        print(f"Model saved as {model_path}")
-        self.version_counter += 1
+        Args:
+            model_path: Path to load model from
+        """
+        print(f"\nLoading model from: {model_path}")
+        self.model.load_model(model_path)
+        print("Model loaded successfully!")
         
-    def predict(self):
-        """Make predictions on validation data"""
-        print("Making predictions on validation set...")
-        self.predictions = self.model.predict(self.X_val)
-        
+    def evaluate(self):
+        """
+        Compute metrics and ROC data for evaluation set
+        """
+        print(f"\nEvaluating on {self.data_split} set...")
+        self.metrics = self.model.compute_metrics(self.X_eval, self.y_eval)
+        self.roc_data = self.model.compute_roc_curve(self.X_eval, self.y_eval)
         
     def plot_loss(self):
-        """Plot training loss over epochs (simulated)"""
-        # Simulate fake loss values for demonstration
-        epochs = np.arange(1, 101)
-        fake_loss = 0.7 * np.exp(-epochs/30) + 0.1 + np.random.normal(0, 0.02, len(epochs))
-        
-        plt.figure(figsize=(8, 6))
-        plt.plot(epochs, fake_loss, 'b-', linewidth=2)
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
-        plt.title('Training Loss Over Epochs')
+        """Plot training loss curve"""
+        if len(self.loss_history) == 0:
+            print("No loss history available. Model was loaded, not trained.")
+            return
+            
+        plt.figure(figsize=(10, 6))
+        plt.plot(self.loss_history, 'b-', linewidth=2)
+        plt.xlabel('Iteration', fontsize=12)
+        plt.ylabel('Loss', fontsize=12)
+        plt.title('Training Loss Over Iterations', fontsize=14, fontweight='bold')
         plt.grid(True, alpha=0.3)
+        plt.tight_layout()
         plt.show()
         
     def plot_confusion_matrix(self):
         """Plot confusion matrix heatmap"""
-        if self.predictions is None:
-            print("No predictions available. Run predict() first.")
+        if self.metrics is None:
+            print("No metrics available. Run evaluate() first.")
             return
-            
-        # Calculate confusion matrix components
-        # Fresh = 0, Rotten = 1
-        true_fresh = np.sum((self.y_val == 0) & (self.predictions == 0))  # True Negatives
-        true_rotten = np.sum((self.y_val == 1) & (self.predictions == 1))  # True Positives
-        false_fresh = np.sum((self.y_val == 1) & (self.predictions == 0))  # False Negatives
-        false_rotten = np.sum((self.y_val == 0) & (self.predictions == 1))  # False Positives
         
-        # Create confusion matrix
-        confusion_matrix = np.array([[true_fresh, false_rotten],
-                                   [false_fresh, true_rotten]])
+        cm = self.metrics['confusion_matrix']
+        confusion_matrix = np.array([
+            [cm['true_fresh'], cm['false_rotten']],
+            [cm['false_fresh'], cm['true_rotten']]
+        ])
         
         plt.figure(figsize=(8, 6))
-        plt.imshow(confusion_matrix, interpolation='nearest', cmap='Blues')
-        plt.title('Confusion Matrix: Fresh vs Rotten Tomatoes')
+        plt.imshow(confusion_matrix, interpolation='nearest', cmap='Reds')
+        plt.title('Confusion Matrix: Fresh vs Rotten Tomatoes', fontsize=14, fontweight='bold')
         plt.colorbar()
         
-        # Add labels
         classes = ['Fresh (0)', 'Rotten (1)']
         tick_marks = np.arange(len(classes))
-        plt.xticks(tick_marks, classes)
-        plt.yticks(tick_marks, classes)
-        plt.ylabel('True Label')
-        plt.xlabel('Predicted Label')
+        plt.xticks(tick_marks, classes, fontsize=11)
+        plt.yticks(tick_marks, classes, fontsize=11)
+        plt.ylabel('True Label', fontsize=12)
+        plt.xlabel('Predicted Label', fontsize=12)
         
         # Add text annotations
         thresh = confusion_matrix.max() / 2.
-        for i in range(confusion_matrix.shape[0]):
-            for j in range(confusion_matrix.shape[1]):
+        for i in range(2):
+            for j in range(2):
                 plt.text(j, i, format(confusion_matrix[i, j], 'd'),
                         ha="center", va="center",
                         color="white" if confusion_matrix[i, j] > thresh else "black",
-                        fontsize=20)
+                        fontsize=20, fontweight='bold')
         
         # Add accuracy info
-        total = len(self.y_val)
-        accuracy = (true_fresh + true_rotten) / total * 100
+        accuracy = self.metrics['accuracy'] * 100
+        total = len(self.y_eval)
         plt.text(0.02, 0.98, f'Total: {total}\nAccuracy: {accuracy:.1f}%', 
                 transform=plt.gca().transAxes, bbox=dict(boxstyle='round', facecolor='wheat'), 
-                verticalalignment='top')
+                verticalalignment='top', fontsize=10)
         
         plt.tight_layout()
         plt.show()
     
-    def print_model_metrics(self):
-        """Print model performance metrics: loss, F1-score, and accuracy"""
-        if self.predictions is None:
-            print("No predictions available. Run predict() first.")
+    def plot_roc_curve(self):
+        """Plot ROC curve"""
+        if self.roc_data is None:
+            print("No ROC data available. Run evaluate() first.")
             return
-            
-        # Calculate final loss on validation set
-        final_loss = self.model._compute_loss(self.X_val, self.y_val, self.model.weights, self.model.bias)
         
-        # Calculate confusion matrix components
-        true_fresh = np.sum((self.y_val == 0) & (self.predictions == 0))  # True Negatives
-        true_rotten = np.sum((self.y_val == 1) & (self.predictions == 1))  # True Positives
-        false_fresh = np.sum((self.y_val == 1) & (self.predictions == 0))  # False Negatives
-        false_rotten = np.sum((self.y_val == 0) & (self.predictions == 1))  # False Positives
+        plt.figure(figsize=(8, 6))
+        plt.plot(self.roc_data['fpr'], self.roc_data['tpr'], 'b-', linewidth=2, 
+                label=f"ROC Curve (AUC = {self.roc_data['auc']:.3f})")
+        plt.plot([0, 1], [0, 1], 'r--', linewidth=2, label='Random Classifier')
+        plt.xlabel('False Positive Rate', fontsize=12)
+        plt.ylabel('True Positive Rate (Recall)', fontsize=12)
+        plt.title('ROC Curve: Fresh vs Rotten Tomatoes', fontsize=14, fontweight='bold')
+        plt.legend(loc='lower right', fontsize=11)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        plt.show()
+    
+    def print_metrics(self):
+        """Print comprehensive model metrics"""
+        if self.metrics is None:
+            print("No metrics available. Run evaluate() first.")
+            return
         
-        # Calculate metrics for each class
-        # For Fresh (class 0)
-        precision_fresh = true_fresh / (true_fresh + false_rotten) if (true_fresh + false_rotten) > 0 else 0
-        recall_fresh = true_fresh / (true_fresh + false_fresh) if (true_fresh + false_fresh) > 0 else 0
-        f1_fresh = 2 * (precision_fresh * recall_fresh) / (precision_fresh + recall_fresh) if (precision_fresh + recall_fresh) > 0 else 0
+        m = self.metrics
         
-        # For Rotten (class 1)
-        precision_rotten = true_rotten / (true_rotten + false_fresh) if (true_rotten + false_fresh) > 0 else 0
-        recall_rotten = true_rotten / (true_rotten + false_rotten) if (true_rotten + false_rotten) > 0 else 0
-        f1_rotten = 2 * (precision_rotten * recall_rotten) / (precision_rotten + recall_rotten) if (precision_rotten + recall_rotten) > 0 else 0
-        
-        # Overall metrics
-        accuracy = (true_fresh + true_rotten) / len(self.y_val)
-        macro_f1 = (f1_fresh + f1_rotten) / 2
-        
-        # Print results
-        print("\n" + "="*50)
-        print("         MODEL PERFORMANCE METRICS")
-        print("="*50)
-        print(f"Final Validation Loss: {final_loss:.4f}")
-        print(f"Accuracy:             {accuracy:.4f} ({accuracy*100:.2f}%)")
-        print(f"Macro F1-Score:       {macro_f1:.4f}")
+        print("\n" + "="*60)
+        print(" "*15 + "MODEL PERFORMANCE METRICS")
+        print("="*60)
+        print(f"Dataset: {self.data_split.upper()}")
+        print(f"Validation Loss:      {m['loss']:.4f}")
+        print(f"Accuracy:             {m['accuracy']:.4f} ({m['accuracy']*100:.2f}%)")
+        print(f"Macro F1-Score:       {m['macro_f1']:.4f}")
+        if self.roc_data:
+            print(f"AUC-ROC:              {self.roc_data['auc']:.4f}")
         print()
         print("Class-wise Metrics:")
-        print("-" * 30)
+        print("-" * 60)
         print(f"Fresh Tomatoes (Class 0):")
-        print(f"  Precision: {precision_fresh:.4f}")
-        print(f"  Recall:    {recall_fresh:.4f}")
-        print(f"  F1-Score:  {f1_fresh:.4f}")
+        print(f"  Precision: {m['fresh']['precision']:.4f}  |  Recall: {m['fresh']['recall']:.4f}  |  F1: {m['fresh']['f1']:.4f}")
         print()
         print(f"Rotten Tomatoes (Class 1):")
-        print(f"  Precision: {precision_rotten:.4f}")
-        print(f"  Recall:    {recall_rotten:.4f}")
-        print(f"  F1-Score:  {f1_rotten:.4f}")
-        print("="*50)
+        print(f"  Precision: {m['rotten']['precision']:.4f}  |  Recall: {m['rotten']['recall']:.4f}  |  F1: {m['rotten']['f1']:.4f}")
+        print("="*60)
+
+
+def main():
+    # Configuration
+    TRAIN_NEW_MODEL = False  # Set to False to load existing model
+    MODEL_PATH = "model_v5.pkl"  # Path for saving/loading model
+    DATA_SPLIT = "val"  # Which split to evaluate on: 'val', or 'test'
+    BINS = 32  # Number of histogram bins
+    
+    print("="*60)
+    print(" "*15 + "TOMATO CLASSIFIER")
+    print("="*60)
+    
+    # Initialize visualization
+    viz = ModelVisualization(bins=BINS, data_split=DATA_SPLIT)
+    
+    # Train or load model
+    if TRAIN_NEW_MODEL:
+        viz.train_model(MODEL_PATH)
+        viz.plot_loss()
+    else:
+        viz.load_model(MODEL_PATH)
+    
+    # Evaluate model
+    viz.evaluate()
+    
+    # Display results
+    viz.print_metrics()
+    viz.plot_confusion_matrix()
+    viz.plot_roc_curve()
+
 
 if __name__ == "__main__":
-    # Create visualization instance
-    viz = ModelVisualization()
-    
-    # Train model
-    viz.train_model()
-    
-    # Make predictions
-    viz.predict()
-    
-    # Show plots
-    viz.plot_loss()
-    viz.plot_confusion_matrix()
-    
-    # Print final metrics
-    viz.print_model_metrics()
+    main()
