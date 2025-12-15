@@ -10,16 +10,22 @@ from utils.data_loader import load_data
 from LogisticRegression import LogisticRegression
 
 class ModelVisualization:
-    def __init__(self, bins=32, data_split='test'):
+    def __init__(self, bins=32, data_split='test', learning_rate=0.1, max_iterations=1000, l2_lambda=0.01):
         """
         Initialize visualization with data
         
         Args:
             bins: Number of histogram bins
             data_split: Which split to evaluate on ('train', 'val', 'test')
+            learning_rate: Learning rate for gradient descent
+            max_iterations: Maximum number of training iterations
+            l2_lambda: L2 regularization parameter
         """
         self.bins = bins
         self.data_split = data_split
+        self.learning_rate = learning_rate
+        self.max_iterations = max_iterations
+        self.l2_lambda = l2_lambda
         
         # Load dataset
         self.X_train, self.y_train = load_data("train", bins=self.bins)
@@ -29,7 +35,8 @@ class ModelVisualization:
         print(f"Evaluation set ({data_split}): {len(self.y_eval)}")
         print(f"Training distribution - Fresh: {np.sum(self.y_train == 0)}, Rotten: {np.sum(self.y_train == 1)}")
         
-        self.model = LogisticRegression(learning_rate=0.05, max_iterations=15000, bins=self.bins)
+        self.model = LogisticRegression(learning_rate=self.learning_rate, max_iterations=self.max_iterations, 
+                                       bins=self.bins, l2_lambda=self.l2_lambda)
         self.metrics = None
         self.roc_data = None
         self.loss_history = []
@@ -174,17 +181,22 @@ class ModelVisualization:
 
 def main():
     # Configuration
-    TRAIN_NEW_MODEL = False  # Set to False to load existing model
+    TRAIN_NEW_MODEL = True  # Set to False to load existing model
     MODEL_PATH = "model_v5.pkl"  # Path for saving/loading model
-    DATA_SPLIT = "test"  # Which split to evaluate on: 'val', or 'test'
+    Evaluate_SPLIT = "test"  # Which split to evaluate on: 'val', or 'test'
     BINS = 32  # Number of histogram bins
+    LEARNING_RATE = 0.1  # Learning rate for gradient descent
+    MAX_ITERATIONS = 10000  # Maximum training iterations
+    L2_LAMBDA = 0.01  # L2 regularization parameter
     
     print("="*60)
     print(" "*15 + "TOMATO CLASSIFIER")
     print("="*60)
     
     # Initialize visualization
-    viz = ModelVisualization(bins=BINS, data_split=DATA_SPLIT)
+    viz = ModelVisualization(bins=BINS, data_split=Evaluate_SPLIT, 
+                            learning_rate=LEARNING_RATE, max_iterations=MAX_ITERATIONS,
+                            l2_lambda=L2_LAMBDA)
     
     # Train or load model
     if TRAIN_NEW_MODEL:
