@@ -34,6 +34,7 @@ class ModelVisualization:
         
         self.model = KMeansCluster(k=k, bins=self.bins, use_normalization=use_normalization)
         self.metrics = None
+        self.roc_data = None
         
     def train_model(self, save_path):
         """
@@ -74,6 +75,7 @@ class ModelVisualization:
         """
         print(f"\nEvaluating on {self.data_split} set...")
         self.metrics = self.model.compute_metrics(self.X_eval, self.y_eval)
+        self.roc_data = self.model.compute_roc_curve(self.X_eval, self.y_eval)
 
     def plot_inertia_curve(self):
         """Plot inertia (loss) curve over iterations"""
@@ -143,6 +145,36 @@ class ModelVisualization:
                 verticalalignment='top', fontsize=10)
         
         plt.tight_layout()
+        
+        # Save figure
+        filename = f'confusion_matrix_kmeans_{self.data_split}_k{self.model.k}_bins{self.bins}.png'
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        print(f"Confusion matrix saved to: {filename}")
+        
+        plt.show()
+    
+    def plot_roc_curve(self):
+        """Plot ROC curve"""
+        if self.roc_data is None:
+            print("No ROC data available. Run evaluate() first.")
+            return
+        
+        plt.figure(figsize=(8, 6))
+        plt.plot(self.roc_data['fpr'], self.roc_data['tpr'], 'b-', linewidth=2, 
+                label=f"ROC Curve (AUC = {self.roc_data['auc']:.3f})")
+        plt.plot([0, 1], [0, 1], 'r--', linewidth=2, label='Random Classifier')
+        plt.xlabel('False Positive Rate', fontsize=12)
+        plt.ylabel('True Positive Rate (Recall)', fontsize=12)
+        plt.title('ROC Curve: Fresh vs Rotten Tomatoes (KMeans)', fontsize=14, fontweight='bold')
+        plt.legend(loc='lower right', fontsize=11)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        
+        # Save figure
+        filename = f'roc_curve_kmeans_{self.data_split}_k{self.model.k}_bins{self.bins}.png'
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        print(f"ROC curve saved to: {filename}")
+        
         plt.show()
     
     def print_metrics(self):
@@ -159,6 +191,8 @@ class ModelVisualization:
         print(f"Dataset: {self.data_split.upper()}")
         print(f"Accuracy:             {m['accuracy']:.4f} ({m['accuracy']*100:.2f}%)")
         print(f"Macro F1-Score:       {m['macro_f1']:.4f}")
+        if self.roc_data:
+            print(f"AUC-ROC:              {self.roc_data['auc']:.4f}")
         print()
         print("Class-wise Metrics:")
         print("-" * 60)
@@ -172,9 +206,9 @@ class ModelVisualization:
 
 def main():
     # Configuration
-    TRAIN_NEW_MODEL = True  # Set to False to load existing model
-    MODEL_PATH = "model_v6.pkl"  # Path for saving/loading model
-    DATA_SPLIT = "test"  # Which split to evaluate on: 'train' or 'test'
+    TRAIN_NEW_MODEL = False  # Set to False to load existing model
+    MODEL_PATH = "model_v2.pkl"  # Path for saving/loading model
+    EVALUATE_SET = "test"  # Which split to evaluate on: 'val' or 'test'
     BINS = 32  # Number of histogram bins
     K = 17  # Number of clusters (try 2, 3, 4, 5, etc.)
     USE_NORMALIZATION = True  # Normalize features before clustering
@@ -184,7 +218,7 @@ def main():
     print("="*60)
     
     # Initialize visualization
-    viz = ModelVisualization(bins=BINS, data_split=DATA_SPLIT, k=K, use_normalization=USE_NORMALIZATION)
+    viz = ModelVisualization(bins=BINS, data_split=EVALUATE_SET, k=K, use_normalization=USE_NORMALIZATION)
     
     # Train or load model
     if TRAIN_NEW_MODEL:
@@ -198,6 +232,7 @@ def main():
     # Display results
     viz.print_metrics()
     viz.plot_inertia_curve()
+    viz.plot_roc_curve()
     viz.plot_confusion_matrix()
 
 

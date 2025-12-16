@@ -183,7 +183,7 @@ def main():
     # Configuration
     TRAIN_NEW_MODEL = True  # Set to False to load existing model
     MODEL_PATH = "model_v5.pkl"  # Path for saving/loading model
-    Evaluate_SPLIT = "test"  # Which split to evaluate on: 'val', or 'test'
+    EVALUATE_SPLIT = "test"  # Which split to evaluate on: 'val', or 'test'
     BINS = 32  # Number of histogram bins
     LEARNING_RATE = 0.1  # Learning rate for gradient descent
     MAX_ITERATIONS = 10000  # Maximum training iterations
@@ -194,7 +194,7 @@ def main():
     print("="*60)
     
     # Initialize visualization
-    viz = ModelVisualization(bins=BINS, data_split=Evaluate_SPLIT, 
+    viz = ModelVisualization(bins=BINS, data_split=EVALUATE_SPLIT, 
                             learning_rate=LEARNING_RATE, max_iterations=MAX_ITERATIONS,
                             l2_lambda=L2_LAMBDA)
     

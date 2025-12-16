@@ -181,13 +181,12 @@ class TomatoDataPreprocessor:
         
         return image
     
-    def balance_dataset(self, data, split='train', images_path=None, labels_path=None):
+    def balance_dataset(self, data, images_path=None, labels_path=None):
         """
         Balance the dataset by augmenting the minority class with real image augmentations
         
         Args:
             data: List of dictionaries with processed data
-            split: Dataset split ('train', 'val', or 'test')
             images_path: Path to images folder (needed for real augmentation)
             labels_path: Path to labels folder (needed for real augmentation)
             

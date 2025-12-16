@@ -231,6 +231,81 @@ class KMeansCluster:
             list: Inertia values at each iteration
         """
         return self.inertia_history
+    
+    def compute_roc_curve(self, X, y):
+        """
+        Compute ROC curve data for KMeans clustering
+        Uses distance-based scoring: negative distance to rotten cluster centroid
+        
+        Args:
+            X (numpy.ndarray): Feature matrix
+            y (numpy.ndarray): True labels
+            
+        Returns:
+            dict: Dictionary with 'fpr', 'tpr', and 'auc' keys
+        """
+        # Normalize features
+        X_normalized = self._normalize_features(X, fit=False)
+        
+        # Find which cluster(s) are mapped to rotten (class 1)
+        rotten_clusters = [c for c, label in self.cluster_to_label.items() if label == 1]
+        
+        if len(rotten_clusters) == 0:
+            print("Warning: No clusters mapped to rotten class. Using cluster 0.")
+            rotten_clusters = [0]
+        
+        # Compute distances to all centroids
+        distances = self.kmeans.transform(X_normalized)
+        
+        # For each sample, use negative minimum distance to any rotten cluster as score
+        # (negative because lower distance = higher probability of being rotten)
+        if len(rotten_clusters) == 1:
+            scores = -distances[:, rotten_clusters[0]]
+        else:
+            # Use minimum distance to any rotten cluster
+            rotten_distances = distances[:, rotten_clusters]
+            scores = -np.min(rotten_distances, axis=1)
+        
+        # Sort by scores
+        sorted_indices = np.argsort(scores)[::-1]  # High to low scores
+        y_sorted = y[sorted_indices]
+        
+        # Calculate TPR and FPR at different thresholds
+        total_positive = np.sum(y == 1)
+        total_negative = np.sum(y == 0)
+        
+        if total_positive == 0 or total_negative == 0:
+            print("Warning: Only one class present in the data.")
+            return {'fpr': [0, 1], 'tpr': [0, 1], 'auc': 0.5}
+        
+        tpr_list = [0]
+        fpr_list = [0]
+        
+        true_positives = 0
+        false_positives = 0
+        
+        for i in range(len(y_sorted)):
+            if y_sorted[i] == 1:
+                true_positives += 1
+            else:
+                false_positives += 1
+            
+            tpr = true_positives / total_positive
+            fpr = false_positives / total_negative
+            
+            tpr_list.append(tpr)
+            fpr_list.append(fpr)
+        
+        # Calculate AUC using trapezoidal rule
+        auc = 0
+        for i in range(1, len(fpr_list)):
+            auc += (fpr_list[i] - fpr_list[i-1]) * (tpr_list[i] + tpr_list[i-1]) / 2
+        
+        return {
+            'fpr': fpr_list,
+            'tpr': tpr_list,
+            'auc': auc
+        }
 
     def save_model(self, path):
         """
