@@ -145,12 +145,6 @@ class ModelVisualization:
                 verticalalignment='top', fontsize=10)
         
         plt.tight_layout()
-        
-        # Save figure
-        filename = f'confusion_matrix_kmeans_{self.data_split}_k{self.model.k}_bins{self.bins}.png'
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"Confusion matrix saved to: {filename}")
-        
         plt.show()
     
     def plot_roc_curve(self):
@@ -169,12 +163,6 @@ class ModelVisualization:
         plt.legend(loc='lower right', fontsize=11)
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        
-        # Save figure
-        filename = f'roc_curve_kmeans_{self.data_split}_k{self.model.k}_bins{self.bins}.png'
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
-        print(f"ROC curve saved to: {filename}")
-        
         plt.show()
     
     def print_metrics(self):

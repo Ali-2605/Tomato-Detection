@@ -181,7 +181,7 @@ class ModelVisualization:
 
 def main():
     # Configuration
-    TRAIN_NEW_MODEL = True  # Set to False to load existing model
+    TRAIN_NEW_MODEL = False  # Set to False to load existing model
     MODEL_PATH = "model_v5.pkl"  # Path for saving/loading model
     EVALUATE_SPLIT = "test"  # Which split to evaluate on: 'val', or 'test'
     BINS = 32  # Number of histogram bins
